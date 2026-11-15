@@ -5,7 +5,7 @@ QSB_BIN   ?= /usr/lib/qt6/bin/qsb
 CC        ?= gcc
 CFLAGS    ?= -O2 -Wall -Wextra -Werror
 
-.PHONY: all shaders test-invariants test-egl plugin test-plugin test clean
+.PHONY: all shaders test-invariants test-egl plugin test-plugin test web-serve clean
 
 all: shaders plugin test
 
@@ -35,6 +35,10 @@ test-plugin:
 	$(MAKE) -C "$(ROOT_DIR)/plugin" test
 
 test: shaders test-invariants test-egl test-plugin
+
+# Serve interactive Clean-Room Apple-style Liquid Glass Web UI testbed locally
+web-serve:
+	python3 -m http.server 18426 --bind 127.0.0.1 --directory "$(ROOT_DIR)/web"
 
 clean:
 	rm -rf "$(BUILD_DIR)"

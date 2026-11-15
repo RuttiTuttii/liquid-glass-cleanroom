@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="color-scheme" content="light dark">
+    <title>Liquid Glass — Clean-Room Web UI Testbed</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module">
+        // Mandatory capability-gated polyfill checks (modern-web-guidance)
+        if (!('commandForElement' in HTMLButtonElement.prototype)) {
+            import('https://esm.run/invokers-polyfill').catch(() => {
+                // Local event fallback handles invoker buttons cleanly if offline.
+            });
+        }
+        if (!Object.hasOwn(HTMLElement.prototype, 'popover')) {
+            import('https://unpkg.com/@oddbird/popover-polyfill@latest/dist/popover.min.js').catch(() => {});
+        }
+    </script>
+</head>
+<body data-theme="light" data-form-factor="desktop" data-engine="webgl2">
+    <!-- Layer 1: Full-Viewport WebGL2 Liquid Glass Compositor Overlay -->
+    <canvas id="glass-canvas" aria-hidden="true"></canvas>
+
+    <!-- Primary Workspace Shell -->
+    <div id="workspace" class="workspace">
+        <!-- Floating Liquid Glass Sidebar (macOS / iPadOS Floating Split View) -->
+        <aside id="app-sidebar"
+               class="glass-surface app-sidebar"
+               data-glass="sidebar"
+               data-glass-radius="26"
+               data-glass-layer="1"
+               aria-label="Primary Workspace Navigation">
+            <div class="sidebar-header">
+                <div class="window-dots" aria-hidden="true">
+                    <span class="dot dot-close"></span>
+                    <span class="dot dot-min"></span>
+                    <span class="dot dot-max"></span>
+                </div>
+                <span class="sidebar-brand">Liquid Kit</span>
+                <button type="button"
+                        id="btn-collapse-sidebar"
+                        class="icon-btn-sm"
+                        title="Hide Sidebar"
+                        aria-label="Hide Sidebar">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <rect x="3" y="4" width="18" height="16" rx="4" />
+                        <line x1="9" y1="4" x2="9" y2="20" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="sidebar-search-wrap">
+                <label for="sidebar-filter" class="sr-only">Filter settings and previews</label>
+                <span class="search-glyph" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.1">
+                        <circle cx="11" cy="11" r="7" />
+                        <line x1="16.5" y1="16.5" x2="21" y2="21" />
+                    </svg>
+                </span>
+                <input id="sidebar-filter"
+                       type="search"
+                       class="sidebar-search-input"
+                       placeholder="Search UI kit..."
+                       autocomplete="off">
+            </div>
+
+            <nav class="sidebar-nav" aria-label="Testbed Views">
+                <div class="nav-group-label">Apple UI Layouts</div>
+                <button type="button" class="sidebar-item is-active" data-nav="gallery">
+                    <span class="nav-badge" style="--badge:#0a84ff">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="8" height="8" rx="2" />
+                            <rect x="13" y="3" width="8" height="8" rx="2" />
+                            <rect x="3" y="13" width="8" height="8" rx="2" />
+                            <rect x="13" y="13" width="8" height="8" rx="2" />
+                        </svg>
+                    </span>
+                    <span>Spatial Gallery</span>
+                </button>
+                <button type="button" class="sidebar-item" data-nav="settings">
+                    <span class="nav-badge" style="--badge:#64748b">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                            <circle cx="12" cy="19.5" r="1" fill="currentColor" />
+                        </svg>
+                    </span>
+                    <span>Settings &amp; Wi-Fi</span>
+                    <span class="nav-count">iOS</span>
+                </button>
+                <button type="button" class="sidebar-item" data-nav="profile">
+                    <span class="nav-badge" style="--badge:#8b5cf6">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="8" r="4" />
+                            <path d="M4 20c1.8-3.6 5-5 8-5s6.2 1.4 8 5" />
+                        </svg>
+                    </span>
+                    <span>Profile &amp; Tab Lens</span>
+                    <span class="nav-pill-red">113</span>
+                </button>
+                <button type="button" class="sidebar-item" data-nav="controls">
+                    <span class="nav-badge" style="--badge:#f97316">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="4" y="3" width="6" height="18" rx="3" />
+                            <rect x="14" y="3" width="6" height="18" rx="3" />
+                            <line x1="4" y1="11" x2="10" y2="11" />
+                            <line x1="14" y1="15" x2="20" y2="15" />
+                        </svg>
+                    </span>
+                    <span>Capsule Sliders</span>
+                </button>
+
+                <div class="nav-group-label">Live Popovers &amp; Alerts</div>
+                <button type="button"
+                        class="sidebar-item"
+                        commandfor="toast-popover"
+                        command="toggle-popover">
+                    <span class="nav-badge" style="--badge:#10b981">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                        </svg>
+                    </span>
+                    <span>Trigger Banner Toast</span>
+                </button>
+                <button type="button"
+                        class="sidebar-item"
+                        commandfor="account-popover"
+                        command="toggle-popover">
+                    <span class="nav-badge" style="--badge:#ec4899">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="4" y="5" width="16" height="14" rx="4" />
+                            <line x1="8" y1="10" x2="16" y2="10" />
+                            <line x1="8" y1="14" x2="13" y2="14" />
+                        </svg>
+                    </span>
+                    <span>Account Context Sheet</span>
+                </button>
+            </nav>
+
+            <!-- Pinned Sidebar Now-Playing Mini Card -->
+            <div class="sidebar-footer-card">
+                <div class="mini-art" aria-hidden="true"></div>
+                <div class="mini-meta">
+                    <strong>Refraction Study IV</strong>
+                    <span>Pure GLSL ES 3.00</span>
+                </div>
+                <button type="button" id="btn-animate-bg" class="pill-mini-btn" aria-pressed="false">
+                    Wave
+                </button>
+            </div>
+        </aside>
+
+        <!-- Central Interactive Viewport / iPhone Frame Host -->
+        <div id="device-shell" class="device-shell">
+            <!-- iPhone Dynamic Status Chrome (visible only in iPhone 26 Mockup mode) -->
+            <div class="iphone-status-bar" aria-hidden="true">
+                <span class="status-pill-time">01:27</span>
+                <span class="dynamic-island"></span>
+                <span class="status-icons">5G &bull; 88%</span>
+            </div>
+
+            <!-- Floating Top Navigation Chrome (never opaque header bar!) -->
+            <header class="floating-topbar" aria-label="Floating Canvas Controls">
+                <div class="topbar-left">
+                    <button type="button"
+                            id="btn-show-sidebar"
+                            class="glass-surface glass-circle-btn is-hidden"
+                            data-glass="show-sidebar"
+                            data-glass-radius="22"
+                            data-glass-layer="2"
+                            aria-label="Open Sidebar"
+                            title="Show Floating Sidebar">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                            <rect x="3" y="4" width="18" height="16" rx="4" />
+                            <line x1="9" y1="4" x2="9" y2="20" />
+                        </svg>
+                    </button>
+
+                    <button type="button"
+                            id="btn-nav-back"
+                            class="glass-surface glass-circle-btn is-hidden"
+                            data-glass="back-btn"
+                            data-glass-radius="22"
+                            data-glass-layer="2"
+                            aria-label="Go Back">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+
+                    <div id="crumb-pill"
+                         class="glass-surface glass-pill-badge"
+                         data-glass="crumb-pill"
+                         data-glass-radius="21"
+                         data-glass-layer="2">
+                        <span id="crumb-title">Spatial Gallery</span>
+                    </div>
+                </div>
+
+                <div class="topbar-right">
+                    <!-- Quick Form-Factor & Scene Toolbar Cluster -->
+                    <div id="toolbar-cluster"
+                         class="glass-surface glass-pill-cluster"
+                         data-glass="toolbar-cluster"
+                         data-glass-radius="22"
+                         data-glass-layer="2">
+                        <button type="button" id="btn-form-factor" class="cluster-btn" title="Switch Desktop Split vs iPhone 26 Mockup">
+                            <span id="label-form-factor">Desktop</span>
+                        </button>
+                        <span class="cluster-sep" aria-hidden="true"></span>
+                        <button type="button" id="btn-wallpaper" class="cluster-btn" title="Cycle Backdrop Wallpaper">
+                            <span id="label-wallpaper">Solstice</span>
+                        </button>
+                        <span class="cluster-sep" aria-hidden="true"></span>
+                        <button type="button" id="btn-theme" class="cluster-btn" aria-label="Toggle Light/Dark Theme" title="Light / Dark Theme">
+                            <span id="label-theme">Light</span>
+                        </button>
+                    </div>
+
+                    <button type="button"
+                            id="btn-toggle-optics"
+                            class="glass-surface glass-pill-action"
+                            data-glass="optics-toggle"
+                            data-glass-radius="22"
+                            data-glass-layer="2"
+                            aria-expanded="true">
+                        <span>Optics</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Floating Notification Toast Pill (Popover API, ref_17 archetype) -->
+            <div id="toast-popover"
+                 popover="manual"
+                 class="glass-surface floating-toast"
+                 data-glass="toast"
+                 data-glass-radius="26"
+                 data-glass-layer="4"
+                 role="status">
+                <div class="toast-avatar" aria-hidden="true">LG</div>
+                <div class="toast-body">
+                    <div class="toast-title-row">
+                        <strong>Workspace Build</strong>
+                        <span>now</span>
+                    </div>
+                    <p>Bevel dispersion tuned over live scrolling backdrop cards.</p>
+                </div>
+                <button type="button"
+                        class="toast-close"
+                        commandfor="toast-popover"
+                        command="hide-popover"
+                        aria-label="Dismiss Notification">
+                    &times;
+                </button>
+            </div>
+
+            <!-- Layer 0: Scrollable Content Stage (scrolls physically behind sidebar, header, tab dock!) -->
+            <main id="stage-viewport" class="stage-viewport">
+                <div id="stage-scroller" class="stage-scroller" tabindex="0">
+                    <div id="stage-content" class="stage-content">
+                        <!-- Dynamically rendered view markup -->
+                    </div>
+                </div>
+            </main>
+
+            <!-- Floating Context Menu Popover (ref_20 archetype) -->
+            <div id="account-popover"
+                 popover="auto"
+                 class="glass-surface floating-account-popover"
+                 data-glass="account-popover"
+                 data-glass-radius="24"
+                 data-glass-layer="4"
+                 aria-label="Workspace Profile Menu">
+                <button type="button" class="popover-menu-row" data-preset-action="clear">
+                    <span class="pm-glyph">+</span>
+                    <span>Add Glass Workspace</span>
+                </button>
+                <div class="pm-sep"></div>
+                <button type="button" class="popover-menu-row" data-account-select="Alex Mercer">
+                    <span class="pm-avatar pm-a"></span>
+                    <span>Alex Mercer &middot; Studio</span>
+                    <span class="pm-check">&#10003;</span>
+                </button>
+                <button type="button" class="popover-menu-row" data-account-select="Design Kit Lab">
+                    <span class="pm-avatar pm-b"></span>
+                    <span>Design Kit Lab &middot; WebGL2</span>
+                </button>
+            </div>
+
+            <!-- Floating Bottom Chrome: Search Pill (Settings view) OR Tab Dock + Draggable Droplet -->
+            <div id="bottom-chrome" class="floating-bottom-chrome">
+                <!-- Search Pill (ref_11 archetype) -->
+                <div id="search-pill"
+                     class="glass-surface floating-search-pill is-hidden"
+                     data-glass="search-pill"
+                     data-glass-radius="26"
+                     data-glass-layer="2">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.1" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7" />
+                        <line x1="16.5" y1="16.5" x2="21" y2="21" />
+                    </svg>
+                    <input id="bottom-search-input" type="search" placeholder="Search" aria-label="Search current view">
+                    <button type="button" class="mic-btn" aria-label="Voice Search" title="Voice input simulation">
+                        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="3" width="6" height="11" rx="3" />
+                            <path d="M5 11a7 7 0 0 0 14 0" />
+                            <line x1="12" y1="18" x2="12" y2="21" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- 3-Tab Floating Pill Dock + Interactive Physics Liquid Glass Droplet (ref_15 / ref_16 / ref_19) -->
+                <nav id="tab-dock"
+                     class="glass-surface floating-tab-dock"
+                     data-glass="tab-dock"
+                     data-glass-radius="32"
+                     data-glass-layer="2"
+                     aria-label="Floating Bottom Tab Bar">
+                    <!-- Dragging / Active Liquid Lens Thumb rendered by WebGL2 via tab-droplet -->
+                    <div id="tab-droplet"
+                         class="tab-droplet glass-surface"
+                         data-glass="tab-droplet"
+                         data-glass-radius="28"
+                         data-glass-layer="3"
+                         aria-hidden="true"></div>
+
+                    <button type="button" class="tab-btn is-active" data-tab="gallery">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9">
+                            <rect x="4" y="4" width="7" height="7" rx="2" />
+                            <rect x="13" y="4" width="7" height="7" rx="2" />
+                            <rect x="4" y="13" width="7" height="7" rx="2" />
+                            <rect x="13" y="13" width="7" height="7" rx="2" />
+                        </svg>
+                        <span>Gallery</span>
+                    </button>
+
+                    <button type="button" class="tab-btn" data-tab="settings">
+                        <span class="tab-badge">113</span>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9">
+                            <path d="M4 11.5C8.5 7 15.5 7 20 11.5" />
+                            <path d="M7.5 15c2.5-2.5 6.5-2.5 9 0" />
+                            <circle cx="12" cy="18.5" r="1.2" fill="currentColor" />
+                        </svg>
+                        <span>Wi-Fi</span>
+                    </button>
+
+                    <button type="button" class="tab-btn" data-tab="profile">
+                        <span class="tab-avatar-dot" aria-hidden="true"></span>
+                        <span>Profile</span>
+                    </button>
+
+                    <button type="button" class="tab-btn" data-tab="controls">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9">
+                            <line x1="8" y1="5" x2="8" y2="19" />
+                            <circle cx="8" cy="10" r="2.2" fill="currentColor" />
+                            <line x1="16" y1="5" x2="16" y2="19" />
+                            <circle cx="16" cy="14" r="2.2" fill="currentColor" />
+                        </svg>
+                        <span>Controls</span>
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Floating Right Inspector: Live Clean-Room Liquid Glass Shader Lab -->
+        <aside id="optics-panel"
+               class="glass-surface optics-panel"
+               data-glass="optics-panel"
+               data-glass-radius="26"
+               data-glass-layer="2"
+               aria-label="Shader Optics Controls">
+            <div class="optics-head">
+                <div>
+                    <h2>Optics Tuner</h2>
+                    <p id="telemetry-line" class="telemetry-line">Initializing WebGL2...</p>
+                </div>
+                <button type="button" id="btn-close-optics" class="icon-btn-sm" aria-label="Close Optics Tuner">&times;</button>
+            </div>
+
+            <!-- Optical Preset Pills -->
+            <div class="preset-grid" role="group" aria-label="Glass Optical Presets">
+                <button type="button" class="preset-chip is-active" data-preset="apple">Apple 26</button>
+                <button type="button" class="preset-chip" data-preset="crystal">Clear Lens</button>
+                <button type="button" class="preset-chip" data-preset="prism">Heavy Prism</button>
+                <button type="button" class="preset-chip" data-preset="smoked">Smoked Dark</button>
+            </div>
+
+            <!-- Render Engine & Sampling Switches -->
+            <div class="optics-switches">
+                <label class="switch-row" for="toggle-engine">
+                    <span class="sw-label">
+                        <strong>WebGL2 Shader Engine</strong>
+                        <small>Off = CSS backdrop-filter A/B</small>
+                    </span>
+                    <input id="toggle-engine" type="checkbox" switch checked class="native-switch">
+                </label>
+
+                <label class="switch-row" for="toggle-lens-dir">
+                    <span class="sw-label">
+                        <strong>Outward Magnifier Lens</strong>
+                        <small>Flip edge bulge vs inward draw</small>
+                    </span>
+                    <input id="toggle-lens-dir" type="checkbox" switch class="native-switch">
+                </label>
+
+                <label class="switch-row" for="toggle-7tap">
+                    <span class="sw-label">
+                        <strong>7-Tap Studio Dispersion</strong>
+                        <small>Off = 3-tap Web Lite fast path</small>
+                    </span>
+                    <input id="toggle-7tap" type="checkbox" switch class="native-switch">
+                </label>
+            </div>
+
+            <!-- Parameter Range Sliders -->
+            <div class="optics-sliders">
+                <div class="range-field">
+                    <div class="range-head">
+                        <label for="opt-refraction">Refraction</label>
+                        <output id="val-refraction" for="opt-refraction">24 px</output>
+                    </div>
+                    <input id="opt-refraction" type="range" min="0" max="48" step="1" value="24" data-unit="px">
+                </div>
+
+                <div class="range-field">
+                    <div class="range-head">
+                        <label for="opt-bevel">Bevel Width</label>
+                        <output id="val-bevel" for="opt-bevel">24 px</output>
+                    </div>
+                    <input id="opt-bevel" type="range" min="6" max="46" step="1" value="24" data-unit="px">
+                </div>
+
+                <div class="range-field">
+                    <div class="range-head">
+                        <label for="opt-dispersion">RGB Dispersion</label>
+                        <output id="val-dispersion" for="opt-dispersion">4.2 px</output>
+                    </div>
+                    <input id="opt-dispersion" type="range" min="0" max="14" step="0.2" value="4.2" data-unit="px">
+                </div>
+
+                <div class="range-field">
+                    <div class="range-head">
+                        <label for="opt-frost">Interior Frost LOD</label>
+                        <output id="val-frost" for="opt-frost">1.95</output>
+                    </div>
+                    <input id="opt-frost" type="range" min="0" max="3.0" step="0.05" value="1.95" data-unit="">
+                </div>
+
+                <div class="range-field">
+                    <div class="range-head">
+                        <label for="opt-edge">Bevel Edge LOD</label>
+                        <output id="val-edge" for="opt-edge">0.20</output>
+                    </div>
+                    <input id="opt-edge" type="range" min="0" max="2.0" step="0.05" value="0.20" data-unit="">
+                </div>
+
+                <div class="range-field">
+                    <div class="range-head">
+                        <label for="opt-specular">Specular Arc</label>
+                        <output id="val-specular" for="opt-specular">0.68</output>
+                    </div>
+                    <input id="opt-specular" type="range" min="0" max="1.6" step="0.02" value="0.68" data-unit="">
+                </div>
+
+                <div class="range-field">
+                    <div class="range-head">
+                        <label for="opt-rimglow">Fresnel Rim Glow</label>
+                        <output id="val-rimglow" for="opt-rimglow">0.55</output>
+                    </div>
+                    <input id="opt-rimglow" type="range" min="0" max="1.4" step="0.02" value="0.55" data-unit="">
+                </div>
+
+                <div class="range-field">
+                    <div class="range-head">
+                        <label for="opt-tint">Surface Milkiness</label>
+                        <output id="val-tint" for="opt-tint">0.18</output>
+                    </div>
+                    <input id="opt-tint" type="range" min="0" max="0.65" step="0.02" value="0.18" data-unit="">
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+</body>
+</html>
