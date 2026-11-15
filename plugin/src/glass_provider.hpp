@@ -46,6 +46,9 @@ class CLiquidGlassBlurProvider : public Render::GL::IGLBlurProvider {
     void              expandDamage(CRegion& damage, float multiplier = 1.F) const override;
 
     void              shutdown(bool hasCurrentContext);
+    UP<Render::GL::IGLBlurProvider> takeFallback() {
+        return std::move(m_fallback);
+    }
     SProviderStats    stats() const;
 
     static CLiquidGlassBlurProvider* activeInstance();

@@ -46,12 +46,14 @@ make test-plugin   # соберет и прогонит plugin/build/gles_plugin
 
 ```bash
 hyprctl plugin load /home/eegor/.gemini/antigravity/scratch/liquid-glass-cleanroom/plugin/build/liquid-glass.so
-hyprctl liquid_glass:status -j
+hyprctl liquid_glass:status
 
-# Живая подстройка без перезапуска:
-hyprctl keyword plugin:liquid_glass:refraction 24
-hyprctl keyword plugin:liquid_glass:dispersion 4.0
-hyprctl keyword plugin:liquid_glass:tint_alpha 0.14
+# Живая подстройка в Hyprland 0.57+ с Lua-конфигом (hyprctl eval):
+hyprctl eval 'hl.config({ plugin = { liquid_glass = { refraction = 24, dispersion = 4.0, tint_alpha = 0.14 } } })'
+# Проверка значения опции:
+hyprctl getoption plugin:liquid_glass:refraction -j
+
+# (Для классического hyprland.conf на Hyprlang: `hyprctl keyword plugin:liquid_glass:refraction 24`)
 
 # Выгрузка (с освобождением GL-ресурсов и возвратом штатного провайдера):
 hyprctl plugin unload /home/eegor/.gemini/antigravity/scratch/liquid-glass-cleanroom/plugin/build/liquid-glass.so
@@ -67,26 +69,28 @@ hl.config({
     rounding = 14,
     blur = { enabled = true },
   },
-  ["plugin:liquid_glass"] = {
-    enabled = true,
-    refraction = 22.0,
-    bevel_width = 24.0,
-    bevel_offset = 0.0,
-    dispersion = 3.5,
-    dispersion_curve = 1.35,
-    frost_lod = 2.3,
-    edge_lod = 0.35,
-    specular = 0.55,
-    spec_width = 2.5,
-    rim_glow = 0.18,
-    luma_adapt = 1.0,
-    squircle_smoothness = -1.0, -- авто под decoration.rounding_power
-    vibrancy = 0.22,
-    brightness = 1.02,
-    contrast = 1.08,
-    tint_alpha = 0.14,
-    tint_color = "0xFFEAF2FF",
-    damage_pad = 28.0,
+  plugin = {
+    liquid_glass = {
+      enabled = true,
+      refraction = 22.0,
+      bevel_width = 24.0,
+      bevel_offset = 0.0,
+      dispersion = 3.5,
+      dispersion_curve = 1.35,
+      frost_lod = 2.3,
+      edge_lod = 0.35,
+      specular = 0.55,
+      spec_width = 2.5,
+      rim_glow = 0.18,
+      luma_adapt = 1.0,
+      squircle_smoothness = -1.0, -- авто под decoration.rounding_power
+      vibrancy = 0.22,
+      brightness = 1.02,
+      contrast = 1.08,
+      tint_alpha = 0.14,
+      tint_color = "0xFFEAF2FF",
+      damage_pad = 28.0,
+    },
   },
 })
 ```

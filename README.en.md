@@ -15,8 +15,8 @@ An independent, MIT-licensed clean-room optical frosted/refractive glass shader 
 > **as of the latest commit:**
 > - all 10 shaders (`glass_quad.vert` + 9 `.frag`) compile and validate cleanly across 4 independent toolchains: `glslangValidator -V` + `spirv-val`, `glslc` + `spirv-val`, `glslangValidator -G` + `spirv-val --target-env opengl4.5`, and Qt6 `/usr/lib/qt6/bin/qsb` (`100 es, 120, 330, 440`).
 > - math invariants are verified on CPU (`tests/verify_invariants.py`, 6 suites) and GPU via headless EGL Surfaceless OpenGL 4.6 SPIR-V (`tests/egl_render_test.c`, 6 GPU checks on **NVIDIA GeForce RTX 5070**).
-> - **native Hyprland 0.57.2 C++ plugin (`plugin/`):** implemented on **OpenGL ES 3.20** with single-source shader generation ([plugin/README.md](plugin/README.md)), built cleanly (`GCC 16.2.1 -std=c++23 -Wall -Wextra -Werror`) with ABI hash + all 173 non-weak ELF symbols verified against `/usr/bin/Hyprland`, and verified on GPU via standalone EGL ES 3.2 harness (`plugin/tests/gles_plugin_test.cpp`).
-> - **pending live session run:** live interactive `hyprctl plugin load` verification inside a user GUI session has not been executed automatically (all verification so far runs via standalone GPU harnesses and ELF ABI verification). KDE KWin and the web runtime come next; see [docs/WEB_PORT_PLAN.md](docs/WEB_PORT_PLAN.md).
+> - **native Hyprland 0.57.2 C++ plugin (`plugin/`):** implemented on **OpenGL ES 3.20** with single-source shader generation ([plugin/README.md](plugin/README.md)), built cleanly (`GCC 16.2.1 -std=c++23 -Wall -Wextra -Werror -fno-gnu-unique`, ABI exports, `0` `STB_GNU_UNIQUE`, and all `175` non-weak ELF symbols verified against `/usr/bin/Hyprland`), verified on GPU via standalone EGL ES 3.2 harness (`plugin/tests/gles_plugin_test.cpp`), and verified live inside a running **Hyprland `v0.57.2`** session (`3840x2160`, `5 mips`, `RGBA16F`, in-place `m_blur` attach, `hyprctl eval`, and clean `hyprctl plugin unload`).
+> - **next milestones:** KDE KWin and the web runtime; see [docs/WEB_PORT_PLAN.md](docs/WEB_PORT_PLAN.md).
 
 <p align="center"><img src="assets/render_preview.png" alt="GPU showcase render of liquid glass: dual-pill coalescing droplets, G2 squircle panel across dark and bright backgrounds, 6-lobe JFA shape, and 3D Snell capsule and torus lenses" width="100%"></p>
 
@@ -117,8 +117,7 @@ See [docs/WEB_PORT_PLAN.md](docs/WEB_PORT_PLAN.md) for the full web adaptation r
 
 ## limitations
 
-- **Single verified hardware stack:** verified locally on Linux with an `NVIDIA GeForce RTX 5070` via headless EGL OpenGL 4.6 Core and OpenGL ES 3.2; not yet benchmarked on AMD `RADV`, Intel `Iris`/`ANV`, or mobile tile GPUs.
-- **Pending live Hyprland session run:** `plugin/build/liquid-glass.so` is compiled against system `Hyprland v0.57.2` with ABI exports and ELF symbol resolution verified, and `CLiquidGlassPipeline` is verified on GPU via `plugin/tests/gles_plugin_test.cpp`, while loading into your interactive compositor session via `hyprctl plugin load` is ready for you to test (see [plugin/README.md](plugin/README.md)). KDE KWin Effect and the web runtime are future steps.
+- **Single verified hardware stack:** verified locally on Linux with an `NVIDIA GeForce RTX 5070` via headless EGL OpenGL 4.6 Core / ES 3.2 and live `Hyprland v0.57.2` (`3840×2160`, `RGBA16F`); not yet benchmarked on AMD `RADV`, Intel `Iris`/`ANV`, or mobile tile GPUs. KDE KWin Effect and the web runtime are future steps.
 - **Full-quality texture bandwidth:** `liquid_glass_panel.frag` runs multi-band + 7-tap sampling uniformly (~28–29 fetches/pixel when multi-band is enabled) without an interior-flatness skip; a compositor/mobile deployment should enable the interior fast-path described in the web plan.
 - **HDR10 / PQ transfer functions:** the Hyprland plugin handles SDR sRGB↔Linear conversion and linear input FBOs (`CM_TRANSFER_FUNCTION_LINEAR` / `EXT_LINEAR`), while PQ/HLG HDR curves are not yet implemented.
 

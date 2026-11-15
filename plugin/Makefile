@@ -9,6 +9,7 @@ CXX       ?= g++
 PYTHON    ?= python3
 STD_FLAG  ?= -std=c++23
 WARNFLAGS ?= -Wall -Wextra -Werror
+PLUGIN_FLAGS ?= -fPIC -fno-gnu-unique
 
 HYPR_CFLAGS := $(shell pkg-config --cflags hyprland pixman-1 libdrm egl glesv2)
 GLES_LIBS   := $(shell pkg-config --libs egl glesv2) -lm
@@ -40,19 +41,19 @@ plugin: $(PLUGIN_SO)
 
 $(BUILD_DIR)/gl_resources.o: $(SRC_DIR)/gl_resources.cpp $(SRC_DIR)/gl_resources.hpp $(SRC_DIR)/glass_uniforms.hpp $(GEN_HEADER)
 	@mkdir -p "$(BUILD_DIR)"
-	$(CXX) $(STD_FLAG) -O2 -fPIC $(WARNFLAGS) -I"$(SRC_DIR)" -I"$(BUILD_DIR)" -c "$<" -o "$@"
+	$(CXX) $(STD_FLAG) -O2 $(PLUGIN_FLAGS) $(WARNFLAGS) -I"$(SRC_DIR)" -I"$(BUILD_DIR)" -c "$<" -o "$@"
 
 $(BUILD_DIR)/config.o: $(SRC_DIR)/config.cpp $(SRC_DIR)/config.hpp $(SRC_DIR)/glass_uniforms.hpp
 	@mkdir -p "$(BUILD_DIR)"
-	$(CXX) $(STD_FLAG) -O2 -fPIC $(WARNFLAGS) $(HYPR_CFLAGS) -I"$(SRC_DIR)" -c "$<" -o "$@"
+	$(CXX) $(STD_FLAG) -O2 $(PLUGIN_FLAGS) $(WARNFLAGS) $(HYPR_CFLAGS) -I"$(SRC_DIR)" -c "$<" -o "$@"
 
 $(BUILD_DIR)/glass_provider.o: $(SRC_DIR)/glass_provider.cpp $(SRC_DIR)/glass_provider.hpp $(SRC_DIR)/gl_resources.hpp $(SRC_DIR)/config.hpp $(SRC_DIR)/glass_uniforms.hpp
 	@mkdir -p "$(BUILD_DIR)"
-	$(CXX) $(STD_FLAG) -O2 -fPIC $(WARNFLAGS) $(HYPR_CFLAGS) -I"$(SRC_DIR)" -I"$(BUILD_DIR)" -c "$<" -o "$@"
+	$(CXX) $(STD_FLAG) -O2 $(PLUGIN_FLAGS) $(WARNFLAGS) $(HYPR_CFLAGS) -I"$(SRC_DIR)" -I"$(BUILD_DIR)" -c "$<" -o "$@"
 
 $(BUILD_DIR)/main.o: $(SRC_DIR)/main.cpp $(SRC_DIR)/config.hpp $(SRC_DIR)/glass_provider.hpp $(SRC_DIR)/gl_resources.hpp $(SRC_DIR)/glass_uniforms.hpp
 	@mkdir -p "$(BUILD_DIR)"
-	$(CXX) $(STD_FLAG) -O2 -fPIC $(WARNFLAGS) $(HYPR_CFLAGS) -I"$(SRC_DIR)" -I"$(BUILD_DIR)" -c "$<" -o "$@"
+	$(CXX) $(STD_FLAG) -O2 $(PLUGIN_FLAGS) $(WARNFLAGS) $(HYPR_CFLAGS) -I"$(SRC_DIR)" -I"$(BUILD_DIR)" -c "$<" -o "$@"
 
 $(PLUGIN_SO): $(BUILD_DIR)/gl_resources.o $(BUILD_DIR)/config.o $(BUILD_DIR)/glass_provider.o $(BUILD_DIR)/main.o
 	$(CXX) -shared -o "$@" $^ $(GLES_LIBS)

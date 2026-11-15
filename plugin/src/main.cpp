@@ -10,6 +10,7 @@
 #include <hyprland/src/render/OpenGL.hpp>
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/render/gl/blur/Factory.hpp>
+#include <hyprland/src/state/MonitorState.hpp>
 
 #include <EGL/egl.h>
 
@@ -20,12 +21,22 @@
 namespace {
 
 // -----------------------------------------------------------------------------
-// [1] Plugin Global State, Hook Trampoline & Compositor Blur Refresh
+// [1] Plugin Global State, Hook Trampoline & Compositor Blur Slot Attachment
 // -----------------------------------------------------------------------------
+
+template <auto MemberPtr>
+struct CRendererBlurSlotAccess {
+    friend UP<Render::GL::IGLBlurProvider> Render::GL::CHyprGLRenderer::* accessRendererBlurSlot() {
+        return MemberPtr;
+    }
+};
+UP<Render::GL::IGLBlurProvider> Render::GL::CHyprGLRenderer::* accessRendererBlurSlot();
+template struct CRendererBlurSlotAccess<&Render::GL::CHyprGLRenderer::m_blur>;
 
 HANDLE                       g_handle         = nullptr;
 CFunctionHook*               g_createBlurHook = nullptr;
 SP<IPC::Socket1::SCommand>   g_statusCmd;
+std::string                  g_attachDiag     = "uninitialized";
 
 using CreateBlurProviderFn = UP<Render::GL::IGLBlurProvider> (*)(Render::eBlurType, Render::GL::CHyprOpenGLImpl&);
 
@@ -42,13 +53,65 @@ void ensureEglCurrentIfAvailable() {
         Render::GL::g_pHyprOpenGL->makeEGLCurrent();
 }
 
-void refreshCompositorBlurProvider() {
-    if (!g_pHyprRenderer)
+void damageAllMonitors() {
+    if (!g_pHyprRenderer || !State::monitorState())
         return;
-    if (auto* glRenderer = dynamic_cast<Render::GL::CHyprGLRenderer*>(g_pHyprRenderer.get())) {
+    for (const auto& mon : State::monitorState()->monitors()) {
+        if (mon)
+            g_pHyprRenderer->damageMonitor(mon);
+    }
+}
+
+void attachLiquidGlassProvider() {
+    if (!g_pHyprRenderer) {
+        g_attachDiag = std::format("g_pHyprRenderer is null (&g_pHyprRenderer={:p})",
+                                   static_cast<const void*>(&g_pHyprRenderer));
+        return;
+    }
+    auto* glRenderer = dynamic_cast<Render::GL::CHyprGLRenderer*>(g_pHyprRenderer.get());
+    if (!glRenderer) {
+        g_attachDiag = std::format("g_pHyprRenderer ({:p}) is NOT CHyprGLRenderer",
+                                   static_cast<const void*>(g_pHyprRenderer.get()));
+        return;
+    }
+
+    auto& slot = glRenderer->*accessRendererBlurSlot();
+    if (!slot) {
         ensureEglCurrentIfAvailable();
         glRenderer->refreshBlurProvider();
+        g_attachDiag = slot ? std::format("slot created via refreshBlurProvider (ptr={:p})", static_cast<const void*>(slot.get()))
+                            : "slot STILL null after refreshBlurProvider";
+    } else if (!dynamic_cast<LiquidGlassPlugin::CLiquidGlassBlurProvider*>(slot.get())) {
+        const auto wrappedType = slot->type();
+        slot = Hyprutils::Memory::makeUnique<LiquidGlassPlugin::CLiquidGlassBlurProvider>(std::move(slot), wrappedType);
+        g_attachDiag = std::format("wrapped existing slot in-place (type={})", static_cast<int>(wrappedType));
+    } else {
+        g_attachDiag = "already attached";
     }
+    damageAllMonitors();
+}
+
+void detachLiquidGlassProvider() {
+    if (!g_pHyprRenderer)
+        return;
+    auto* glRenderer = dynamic_cast<Render::GL::CHyprGLRenderer*>(g_pHyprRenderer.get());
+    if (!glRenderer)
+        return;
+
+    ensureEglCurrentIfAvailable();
+    auto& slot = glRenderer->*accessRendererBlurSlot();
+    if (auto* lg = dynamic_cast<LiquidGlassPlugin::CLiquidGlassBlurProvider*>(slot.get())) {
+        auto restored = lg->takeFallback();
+        if (restored) {
+            slot = std::move(restored);
+        } else {
+            slot.reset();
+            glRenderer->refreshBlurProvider();
+        }
+    } else {
+        glRenderer->refreshBlurProvider();
+    }
+    damageAllMonitors();
 }
 
 void* findCreateBlurProviderAddr(HANDLE handle) {
@@ -97,6 +160,7 @@ IPC::Socket1::SResponse handleStatusCmd(const IPC::Socket1::SRequest& req) {
         "  gl_initialized: {}\n"
         "  pyramid:        {}x{} ({} mips, {})\n"
         "  calls:          glass={}, fallback={}\n"
+        "  attach_diag:    {}\n"
         "  refraction:     {:.2f}px | bevel={:.2f}px | dispersion={:.2f}px\n"
         "  frost_lod:      {:.2f} | edge_lod={:.2f} | specular={:.2f}\n"
         "  last_error:     {}\n",
@@ -109,6 +173,7 @@ IPC::Socket1::SResponse handleStatusCmd(const IPC::Socket1::SRequest& req) {
         st.fp16Pyramid ? "RGBA16F" : "RGBA8",
         st.glassCalls,
         st.fallbackCalls,
+        g_attachDiag,
         params.refractionPx,
         params.bevelWidthPx,
         params.dispersionPx,
@@ -132,7 +197,7 @@ void cleanupAll() {
         g_createBlurHook = nullptr;
     }
 
-    refreshCompositorBlurProvider();
+    detachLiquidGlassProvider();
     LiquidGlassPlugin::Settings::pluginConfig().reset();
     g_handle = nullptr;
 }
@@ -184,7 +249,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO pluginInit(HANDLE handle) {
         }
     );
 
-    refreshCompositorBlurProvider();
+    attachLiquidGlassProvider();
     LOG(Log::INFO, "[liquid-glass] Loaded and attached successfully");
 
     return {

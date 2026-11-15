@@ -15,8 +15,8 @@
 > **на момент последнего коммита:**
 > - все 10 шейдеров (`glass_quad.vert` + 9 `.frag`) собираются и проходят проверку в 4 независимых тулчейнах: `glslangValidator -V` + `spirv-val`, `glslc` + `spirv-val`, `glslangValidator -G` + `spirv-val --target-env opengl4.5` и Qt6 `/usr/lib/qt6/bin/qsb` (`100 es, 120, 330, 440`).
 > - математические инварианты проверены на CPU (`tests/verify_invariants.py`, 6 тестов) и на GPU через headless EGL Surfaceless OpenGL 4.6 SPIR-V (`tests/egl_render_test.c`, 6 GPU-проверок на **NVIDIA GeForce RTX 5070**).
-> - **нативный C++ плагин для Hyprland 0.57.2 (`plugin/`):** реализован на базе **OpenGL ES 3.20** с автогенерацией шейдеров из канонических `.glsl` ([plugin/README.md](plugin/README.md)), собран в `plugin/build/liquid-glass.so` (GCC 16.2.1 `-std=c++23 -Wall -Wextra -Werror`, экспорт ABI + 173 символа проверены против `/usr/bin/Hyprland`) и проверен автономным EGL ES 3.2 GPU-стендом (`plugin/tests/gles_plugin_test.cpp`).
-> - **что пока не прогнано вживую:** интерактивная загрузка `.so` в живую графическую сессию композитора (тесты выполнены на автономных GPU-стендах и статическом/ELF-анализе против системного `Hyprland v0.57.2`). KDE KWin и веб-рантайм — последующие этапы; для веба подготовлен архитектурный план [docs/WEB_PORT_PLAN.md](docs/WEB_PORT_PLAN.md).
+> - **нативный C++ плагин для Hyprland 0.57.2 (`plugin/`):** реализован на базе **OpenGL ES 3.20** с автогенерацией шейдеров из канонических `.glsl` ([plugin/README.md](plugin/README.md)), собран в `plugin/build/liquid-glass.so` (GCC 16.2.1 `-std=c++23 -Wall -Wextra -Werror -fno-gnu-unique`, ABI-экспорты, `0` `STB_GNU_UNIQUE` и все `175` не-weak ELF-символов проверены против `/usr/bin/Hyprland`), проверен автономным EGL ES 3.2 GPU-стендом (`plugin/tests/gles_plugin_test.cpp`) и вживую в запущенной сессии **Hyprland `v0.57.2`** (`3840x2160`, `5 mips`, `RGBA16F`, горячее подключение `m_blur`, `hyprctl eval`, чистая выгрузка `hyprctl plugin unload`).
+> - **следующие этапы:** KDE KWin и веб-рантайм; для веба подготовлен архитектурный план [docs/WEB_PORT_PLAN.md](docs/WEB_PORT_PLAN.md).
 
 <p align="center"><img src="assets/render_preview.png" alt="GPU-рендер liquid glass: вверху слева слияние сквирклов, в центре главная панель поверх тёмного и светлого фона, вверху справа 6-лепестковая форма из JFA, внизу капсула и тор по закону Снеллиуса" width="100%"></p>
 
@@ -122,8 +122,7 @@ make test-plugin      # прогон ES 3.20 пайплайна плагина �
 
 ## ограничения и что не сделано
 
-- **Проверено только на одном стенде:** Arch/Linux с `NVIDIA GeForce RTX 5070` через EGL Surfaceless OpenGL 4.6 Core и OpenGL ES 3.2; на AMD (`RADV`), Intel (`Iris`/`ANV`) и мобильных GPU шейдеры не гонялись.
-- **Живой интерактивный прогон Hyprland-плагина:** `plugin/build/liquid-glass.so` скомпилирован под системный `Hyprland v0.57.2`, его ES 3.2 GPU-конвейер (`CLiquidGlassPipeline`) и все экспортируемые/неразрешённые ELF-символы проверены, но ручная загрузка в живую графическую сессию пользователя (`hyprctl plugin load`) оставлена за пользователем (см. [plugin/README.md](plugin/README.md)). KDE KWin Effect и веб-рантайм — последующие шаги.
+- **Проверено на одном железе:** Arch/Linux с `NVIDIA GeForce RTX 5070` через headless EGL (OpenGL 4.6 Core / ES 3.2) и в живом `Hyprland v0.57.2` (`3840×2160`, `RGBA16F`); на AMD (`RADV`), Intel (`Iris`/`ANV`) и мобильных GPU шейдеры не гонялись. KDE KWin Effect и веб-рантайм — следующие этапы.
 - **Полная стоимость дефолтного `liquid_glass_panel.frag`:** с включённым 3-band режимом и 7-tap дисперсией шейдер делает до ~28–29 чтений текстуры на пиксель внутри панели, включая её плоскую середину. Для 4K @ 120 Гц имеет смысл добавить interior fast-path / 3-tap профиль (как описано в плане веб-оптимизации).
 - **HDR10 / PQ 10-bit:** в плагине реализовано декодирование SDR sRGB↔Linear и проброс линейного входного FBO (`CM_TRANSFER_FUNCTION_LINEAR` / `EXT_LINEAR`), но кривые PQ/HLG не реализованы.
 
