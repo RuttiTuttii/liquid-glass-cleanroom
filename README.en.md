@@ -15,7 +15,8 @@ An independent, MIT-licensed clean-room optical frosted/refractive glass shader 
 > **as of the latest commit:**
 > - all 10 shaders (`glass_quad.vert` + 9 `.frag`) compile and validate cleanly across 4 independent toolchains: `glslangValidator -V` + `spirv-val`, `glslc` + `spirv-val`, `glslangValidator -G` + `spirv-val --target-env opengl4.5`, and Qt6 `/usr/lib/qt6/bin/qsb` (`100 es, 120, 330, 440`).
 > - math invariants are verified on CPU (`tests/verify_invariants.py`, 6 suites) and GPU via headless EGL Surfaceless OpenGL 4.6 SPIR-V (`tests/egl_render_test.c`, 6 GPU checks on **NVIDIA GeForce RTX 5070**).
-> - **not implemented yet:** live Wayland compositor integration (Hyprland C++ plugin / KDE KWin Effect / Quickshell QSB) and web runtime code (only the detailed architecture plan exists in [docs/WEB_PORT_PLAN.md](docs/WEB_PORT_PLAN.md)).
+> - **native Hyprland 0.57.2 C++ plugin (`plugin/`):** implemented on **OpenGL ES 3.20** with single-source shader generation ([plugin/README.md](plugin/README.md)), built cleanly (`GCC 16.2.1 -std=c++23 -Wall -Wextra -Werror`) with ABI hash + all 173 non-weak ELF symbols verified against `/usr/bin/Hyprland`, and verified on GPU via standalone EGL ES 3.2 harness (`plugin/tests/gles_plugin_test.cpp`).
+> - **pending live session run:** live interactive `hyprctl plugin load` verification inside a user GUI session has not been executed automatically (all verification so far runs via standalone GPU harnesses and ELF ABI verification). KDE KWin and the web runtime come next; see [docs/WEB_PORT_PLAN.md](docs/WEB_PORT_PLAN.md).
 
 <p align="center"><img src="assets/render_preview.png" alt="GPU showcase render of liquid glass: dual-pill coalescing droplets, G2 squircle panel across dark and bright backgrounds, 6-lobe JFA shape, and 3D Snell capsule and torus lenses" width="100%"></p>
 
@@ -91,19 +92,23 @@ Epsilon-guarded un-premultiply, 3×4 affine color grading, Rec.709 `lumaAdaptive
 | JFA Mask-to-SDF | Seed extraction, Jump Flooding ping-pong, sub-pixel resolve, separable/single Gaussian smoothing, normal packing | [shaders/jfa_seed.frag](shaders/jfa_seed.frag), [shaders/jfa_step.frag](shaders/jfa_step.frag), [shaders/sdf_resolve.frag](shaders/sdf_resolve.frag), [shaders/sdf_smooth.frag](shaders/sdf_smooth.frag), [shaders/sdf_pack_normals.frag](shaders/sdf_pack_normals.frag) |
 | Glass shaders | Unified panel shader (analytic or JFA SDF+normal map) and 3D Snell thin-lens refraction shader | [shaders/liquid_glass_panel.frag](shaders/liquid_glass_panel.frag), [shaders/snell_lens_glass.frag](shaders/snell_lens_glass.frag) |
 | Build & test suite | 4-toolchain compile/validate script, CPU/NumPy mathematical invariants, headless EGL/GL 4.6 SPIR-V GPU harness | [scripts/build_shaders.sh](scripts/build_shaders.sh), [tests/verify_invariants.py](tests/verify_invariants.py), [tests/egl_render_test.c](tests/egl_render_test.c) |
+| Native Hyprland plugin | `#version 320 es` generator, `IGLBlurProvider` hook, `plugin:liquid_glass:*` config, `CLiquidGlassPipeline`, ES 3.2 test | [plugin/README.md](plugin/README.md), [scripts/gen_plugin_shaders.py](scripts/gen_plugin_shaders.py), [plugin/src/main.cpp](plugin/src/main.cpp) |
 | Web architecture plan | Detailed Russian blueprint for `Web Lite` fast-paths, WebGL2/WebGPU runtime & CSS/DOM accessibility layer | [docs/WEB_PORT_PLAN.md](docs/WEB_PORT_PLAN.md) |
 
 ## build & verification
 
-Linux prerequisites: `glslangValidator`, `glslc`, `spirv-val`, Qt6 `qsb` (default `/usr/lib/qt6/bin/qsb`), `gcc`, `EGL`/`GL` headers (`glcorearb.h`), `python3` with `numpy`.
+Linux prerequisites: `glslangValidator`, `glslc`, `spirv-val`, Qt6 `qsb` (default `/usr/lib/qt6/bin/qsb`), `gcc`/`g++`, `EGL`/`GL`/`GLES3` headers (`glcorearb.h`), `python3` with `numpy`; plus `hyprland`, `pixman-1`, `libdrm` headers for the native plugin.
 
 ```bash
+# full shader build + native Hyprland plugin + all CPU/GPU suites (GL 4.6 SPIR-V and ES 3.2)
 make clean && make
 
 # individual targets:
 make shaders          # compiles .spv (Vulkan/GL), runs spirv-val, bakes Qt6 .qsb under build/
+make plugin           # builds plugin/build/liquid-glass.so for Hyprland 0.57.2
 make test-invariants  # CPU/NumPy checks (JFA <0.25 px RMS, neutral gray achromaticity, LOD, Snell/TIR)
 make test-egl         # executes compiled GL SPIR-V on GPU via headless EGL & saves build/render_preview.png
+make test-plugin      # executes the plugin's OpenGL ES 3.20 pipeline on GPU (plugin/build/gles_plugin_test)
 ```
 
 ## web port plan
@@ -112,10 +117,10 @@ See [docs/WEB_PORT_PLAN.md](docs/WEB_PORT_PLAN.md) for the full web adaptation r
 
 ## limitations
 
-- **Single verified test configuration:** verified locally on Linux with an `NVIDIA GeForce RTX 5070` via EGL Surfaceless OpenGL 4.6 Core; not yet benchmarked on AMD `RADV`, Intel `Iris`/`ANV`, mobile tile GPUs, or a live Wayland compositor frame loop.
-- **Shader core only:** this repository contains validated shaders and CPU/GPU test harnesses rather than a ready-to-install compositor plugin (Hyprland C++ plugin / KDE KWin Effect / Quickshell QSB integration comes next).
+- **Single verified hardware stack:** verified locally on Linux with an `NVIDIA GeForce RTX 5070` via headless EGL OpenGL 4.6 Core and OpenGL ES 3.2; not yet benchmarked on AMD `RADV`, Intel `Iris`/`ANV`, or mobile tile GPUs.
+- **Pending live Hyprland session run:** `plugin/build/liquid-glass.so` is compiled against system `Hyprland v0.57.2` with ABI exports and ELF symbol resolution verified, and `CLiquidGlassPipeline` is verified on GPU via `plugin/tests/gles_plugin_test.cpp`, while loading into your interactive compositor session via `hyprctl plugin load` is ready for you to test (see [plugin/README.md](plugin/README.md)). KDE KWin Effect and the web runtime are future steps.
 - **Full-quality texture bandwidth:** `liquid_glass_panel.frag` runs multi-band + 7-tap sampling uniformly (~28–29 fetches/pixel when multi-band is enabled) without an interior-flatness skip; a compositor/mobile deployment should enable the interior fast-path described in the web plan.
-- **No HDR10 / PQ transfer functions:** shaders operate in linear `RGBA16F` and the testbench exports standard sRGB PNG.
+- **HDR10 / PQ transfer functions:** the Hyprland plugin handles SDR sRGB↔Linear conversion and linear input FBOs (`CM_TRANSFER_FUNCTION_LINEAR` / `EXT_LINEAR`), while PQ/HLG HDR curves are not yet implemented.
 
 ---
 

@@ -1,7 +1,9 @@
 build/
+plugin/build/
 *.spv
 *.qsb
 *.o
+*.so
 __pycache__/
 *.pyc
 .DS_Store

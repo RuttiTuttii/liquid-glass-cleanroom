@@ -15,7 +15,8 @@
 > **на момент последнего коммита:**
 > - все 10 шейдеров (`glass_quad.vert` + 9 `.frag`) собираются и проходят проверку в 4 независимых тулчейнах: `glslangValidator -V` + `spirv-val`, `glslc` + `spirv-val`, `glslangValidator -G` + `spirv-val --target-env opengl4.5` и Qt6 `/usr/lib/qt6/bin/qsb` (`100 es, 120, 330, 440`).
 > - математические инварианты проверены на CPU (`tests/verify_invariants.py`, 6 тестов) и на GPU через headless EGL Surfaceless OpenGL 4.6 SPIR-V (`tests/egl_render_test.c`, 6 GPU-проверок на **NVIDIA GeForce RTX 5070**).
-> - **что пока не сделано:** живая обвязка под Wayland-композитор (Hyprland C++ плагин / KDE KWin Effect / Quickshell QSB) и веб-рантайм. Для веба подготовлен только подробный архитектурный план — [docs/WEB_PORT_PLAN.md](docs/WEB_PORT_PLAN.md).
+> - **нативный C++ плагин для Hyprland 0.57.2 (`plugin/`):** реализован на базе **OpenGL ES 3.20** с автогенерацией шейдеров из канонических `.glsl` ([plugin/README.md](plugin/README.md)), собран в `plugin/build/liquid-glass.so` (GCC 16.2.1 `-std=c++23 -Wall -Wextra -Werror`, экспорт ABI + 173 символа проверены против `/usr/bin/Hyprland`) и проверен автономным EGL ES 3.2 GPU-стендом (`plugin/tests/gles_plugin_test.cpp`).
+> - **что пока не прогнано вживую:** интерактивная загрузка `.so` в живую графическую сессию композитора (тесты выполнены на автономных GPU-стендах и статическом/ELF-анализе против системного `Hyprland v0.57.2`). KDE KWin и веб-рантайм — последующие этапы; для веба подготовлен архитектурный план [docs/WEB_PORT_PLAN.md](docs/WEB_PORT_PLAN.md).
 
 <p align="center"><img src="assets/render_preview.png" alt="GPU-рендер liquid glass: вверху слева слияние сквирклов, в центре главная панель поверх тёмного и светлого фона, вверху справа 6-лепестковая форма из JFA, внизу капсула и тор по закону Снеллиуса" width="100%"></p>
 
@@ -93,20 +94,23 @@
 | JFA Mask-to-SDF (5 проходов) | Поиск граничных сидов, шаги Jump Flooding, субпиксельный resolve, сглаживание (1/2 прохода), упаковка `SDF + normal` | [shaders/jfa_seed.frag](shaders/jfa_seed.frag), [shaders/jfa_step.frag](shaders/jfa_step.frag), [shaders/sdf_resolve.frag](shaders/sdf_resolve.frag), [shaders/sdf_smooth.frag](shaders/sdf_smooth.frag), [shaders/sdf_pack_normals.frag](shaders/sdf_pack_normals.frag) |
 | Основные шейдеры стекла | Объединенный шейдер панели (аналитика или JFA-карта) и 3D-линза по Снеллиусу | [shaders/liquid_glass_panel.frag](shaders/liquid_glass_panel.frag), [shaders/snell_lens_glass.frag](shaders/snell_lens_glass.frag) |
 | Сборка и проверки | Матрица 4 компиляторов, NumPy-тесты математических инвариантов, C/EGL SPIR-V прогон на GPU | [scripts/build_shaders.sh](scripts/build_shaders.sh), [tests/verify_invariants.py](tests/verify_invariants.py), [tests/egl_render_test.c](tests/egl_render_test.c) |
+| Нативный плагин Hyprland | Генератор `#version 320 es`, `IGLBlurProvider` хук, конфиг `plugin:liquid_glass:*`, `CLiquidGlassPipeline`, стенд ES 3.2 | [plugin/README.md](plugin/README.md), [scripts/gen_plugin_shaders.py](scripts/gen_plugin_shaders.py), [plugin/src/main.cpp](plugin/src/main.cpp) |
 | План порта в веб | Оптимизация `Web Lite`, 4-уровневый early-out, DOM-мост доступности и WebGL2/WebGPU матрица | [docs/WEB_PORT_PLAN.md](docs/WEB_PORT_PLAN.md) |
 
 ## сборка и проверка
 
-Требования на Linux: `glslangValidator`, `glslc`, `spirv-val`, Qt6 `qsb` (по умолчанию `/usr/lib/qt6/bin/qsb`), `gcc`, заголовочные файлы `EGL`/`GL` (`glcorearb.h`), `python3` с `numpy`.
+Требования на Linux: `glslangValidator`, `glslc`, `spirv-val`, Qt6 `qsb` (по умолчанию `/usr/lib/qt6/bin/qsb`), `gcc`/`g++`, заголовочные файлы `EGL`/`GL`/`GLES3` (`glcorearb.h`), `python3` с `numpy`; для плагина дополнительно заголовки `hyprland`, `pixman-1`, `libdrm`.
 
 ```bash
-# полная сборка шейдеров + CPU-тесты инвариантов + GPU-проверка через headless EGL SPIR-V
+# полная сборка шейдеров + плагина Hyprland + все CPU/GPU-тесты (GL 4.6 SPIR-V и ES 3.2)
 make clean && make
 
 # по отдельности:
 make shaders          # сборка .spv (Vulkan/GL), glslc, spirv-val и Qt6 .qsb в build/
+make plugin           # сборка plugin/build/liquid-glass.so для Hyprland 0.57.2
 make test-invariants  # проверка точности JFA (<0.25 px), нулевого дрейфа серого, LOD и Снеллиуса на CPU
-make test-egl         # запуск реальных SPIR-V бинарников на GPU через EGL Surfaceless и рендер build/render_preview.png
+make test-egl         # запуск GL SPIR-V бинарников на GPU через EGL Surfaceless и рендер build/render_preview.png
+make test-plugin      # прогон ES 3.20 пайплайна плагина на GPU (plugin/build/gles_plugin_test)
 ```
 
 ## план порта в веб
@@ -118,10 +122,10 @@ make test-egl         # запуск реальных SPIR-V бинарнико�
 
 ## ограничения и что не сделано
 
-- **Проверено только на одном стенде:** Arch/Linux с `NVIDIA GeForce RTX 5070` через EGL Surfaceless OpenGL 4.6 Core; на AMD (`RADV`), Intel (`Iris`/`ANV`), мобильных GPU и Wayland-композиторах в реальном времени шейдеры ещё не гонялись.
-- **Нет готового композитора / плагина в этом репо:** здесь только проверенное шейдерное ядро (`.glsl`, `.spv`, `.qsb`) и тестовые стенды. Интеграция в Hyprland / KWin Effect / Quickshell / OBS / GStreamer — следующий шаг.
-- **Полная стоимость дефолтного `liquid_glass_panel.frag`:** с включённым 3-band режимом и 7-tap дисперсией шейдер делает до ~28–29 чтений текстуры на пиксель внутри панели, включая её плоскую середину. Для 4K @ 120 Гц в композиторе имеет смысл включить interior fast-path / 3-tap профиль (как описано в разделе оптимизации веб-плана).
-- **Нет HDR10 / PQ 10-bit и цветоуправления (CMS):** пайплайн работает в линейном `RGBA16F` без EOTF/PQ-кривых на входе и выходе (PNG-экспорт стенда использует стандартную передаточную функцию sRGB).
+- **Проверено только на одном стенде:** Arch/Linux с `NVIDIA GeForce RTX 5070` через EGL Surfaceless OpenGL 4.6 Core и OpenGL ES 3.2; на AMD (`RADV`), Intel (`Iris`/`ANV`) и мобильных GPU шейдеры не гонялись.
+- **Живой интерактивный прогон Hyprland-плагина:** `plugin/build/liquid-glass.so` скомпилирован под системный `Hyprland v0.57.2`, его ES 3.2 GPU-конвейер (`CLiquidGlassPipeline`) и все экспортируемые/неразрешённые ELF-символы проверены, но ручная загрузка в живую графическую сессию пользователя (`hyprctl plugin load`) оставлена за пользователем (см. [plugin/README.md](plugin/README.md)). KDE KWin Effect и веб-рантайм — последующие шаги.
+- **Полная стоимость дефолтного `liquid_glass_panel.frag`:** с включённым 3-band режимом и 7-tap дисперсией шейдер делает до ~28–29 чтений текстуры на пиксель внутри панели, включая её плоскую середину. Для 4K @ 120 Гц имеет смысл добавить interior fast-path / 3-tap профиль (как описано в плане веб-оптимизации).
+- **HDR10 / PQ 10-bit:** в плагине реализовано декодирование SDR sRGB↔Linear и проброс линейного входного FBO (`CM_TRANSFER_FUNCTION_LINEAR` / `EXT_LINEAR`), но кривые PQ/HLG не реализованы.
 
 ---
 
