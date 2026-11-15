@@ -1,0 +1,7 @@
+build/
+*.spv
+*.qsb
+*.o
+__pycache__/
+*.pyc
+.DS_Store
